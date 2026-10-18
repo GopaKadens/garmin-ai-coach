@@ -57,13 +57,19 @@ def sync_activities():
     )
 
     # Restore Garmin authentication tokens
-    encoded = os.environ["GARMIN_TOKENS"]
+    saved_tokens = load_saved_tokens(supabase)
+
+if saved_tokens is not None:
+    archive_bytes = saved_tokens
+    print("Using encrypted tokens from Supabase")
+else:
+    archive_bytes = base64.b64decode(os.environ["GARMIN_TOKENS"])
+    print("Using initial tokens from GitHub Secrets")
 
     with tempfile.TemporaryDirectory() as temp_dir:
         token_dir = Path(temp_dir) / "tokens"
         token_dir.mkdir()
 
-        archive_bytes = base64.b64decode(encoded)
 
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
             for item in archive.infolist():
@@ -75,6 +81,7 @@ def sync_activities():
         garmin = Garmin()
         garmin.login(str(token_dir))
         garmin.garth.dump(str(token_dir))
+        save_tokens(supabase, token_dir)
         print("Garmin connected successfully")
 
         # Import the last 30 days of activities
