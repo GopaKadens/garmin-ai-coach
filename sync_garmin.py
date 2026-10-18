@@ -126,7 +126,7 @@ else:
             print(f"Saved activity {activity_id}")
 
         print("Synchronization completed")
-        garmin.garth.dump(str(token_dir))
+        garmin.client.dump(str(token_dir))
         save_tokens(supabase, token_dir)
 
 
