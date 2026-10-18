@@ -1,40 +1,52 @@
 
 import os
+import io
+import base64
+import zipfile
+import tempfile
+from pathlib import Path
 from datetime import date, timedelta
+
 from garminconnect import Garmin
 
-username = os.environ["GARMIN_EMAIL"]
-password = os.environ["GARMIN_PASSWORD"]
+encoded = os.environ["GARMIN_TOKENS"]
 
-print("Connecting to Garmin Connect...")
+with tempfile.TemporaryDirectory() as temp_dir:
+    token_dir = Path(temp_dir) / "tokens"
+    token_dir.mkdir()
 
-client = Garmin(username, password)
-client.login()
+    archive_bytes = base64.b64decode(encoded)
 
-print("Connection successful!")
+    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+        for item in archive.infolist():
+            target = (token_dir / item.filename).resolve()
+            if not target.is_relative_to(token_dir.resolve()):
+                raise ValueError("Unsafe archive path")
+        archive.extractall(token_dir)
 
-today = date.today()
-start = today - timedelta(days=7)
+    print("Loading Garmin tokens...")
 
-activities = client.get_activities_by_date(
-    start.isoformat(),
-    today.isoformat()
-)
+    client = Garmin()
+    client.login(str(token_dir))
 
-print(f"Activities found: {len(activities)}")
+    print("Garmin authentication successful!")
 
-for activity in activities:
-    print({
-        "date": activity.get("startTimeLocal"),
-        "type": activity.get("activityType", {}).get("typeKey"),
-        "distance_km": round(
-            (activity.get("distance") or 0) / 1000, 2
-        ),
-        "duration_min": round(
-            (activity.get("duration") or 0) / 60, 1
-        ),
-        "elevation_gain_m": activity.get("elevationGain"),
-        "average_hr": activity.get("averageHR"),
-    })
+    today = date.today()
+    start = today - timedelta(days=7)
 
-print("Test completed.")
+    activities = client.get_activities_by_date(
+        start.isoformat(),
+        today.isoformat()
+    )
+
+    print(f"Activities found: {len(activities)}")
+
+    for activity in activities:
+        print(
+            activity.get("startTimeLocal"),
+            activity.get("activityName"),
+            round((activity.get("distance") or 0) / 1000, 2),
+            "km"
+        )
+
+    print("Cloud test completed successfully.")
