@@ -28,4 +28,5 @@ jobs:
           GARMIN_TOKENS: ${{ secrets.GARMIN_TOKENS }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
         run: python sync_garmin.py
