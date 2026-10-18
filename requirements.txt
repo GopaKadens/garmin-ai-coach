@@ -2,3 +2,4 @@
 garminconnect
 supabase
 cryptography
+openai
