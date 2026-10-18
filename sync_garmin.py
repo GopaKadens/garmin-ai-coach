@@ -9,7 +9,45 @@ from datetime import date, timedelta
 
 from garminconnect import Garmin
 from supabase import create_client
+from cryptography.fernet import Fernet
 
+
+def load_saved_tokens(supabase):
+    result = (
+        supabase.table("garmin_auth_tokens")
+        .select("token_data")
+        .eq("id", 1)
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    cipher = Fernet(os.environ["TOKEN_ENCRYPTION_KEY"].encode())
+    encrypted = result.data[0]["token_data"].encode()
+    return cipher.decrypt(encrypted)
+
+
+def save_tokens(supabase, token_dir):
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for file in token_dir.rglob("*"):
+            if file.is_file():
+                archive.write(file, file.relative_to(token_dir))
+
+    cipher = Fernet(os.environ["TOKEN_ENCRYPTION_KEY"].encode())
+    encrypted = cipher.encrypt(buffer.getvalue()).decode()
+
+    supabase.table("garmin_auth_tokens").upsert({
+        "id": 1,
+        "token_data": encrypted,
+        "updated_at": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc
+        ).isoformat()
+    }).execute()
+
+    print("Encrypted Garmin tokens saved")
 
 def sync_activities():
     # Connect to Supabase
