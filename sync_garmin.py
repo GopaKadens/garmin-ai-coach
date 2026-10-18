@@ -36,6 +36,7 @@ def sync_activities():
 
         garmin = Garmin()
         garmin.login(str(token_dir))
+        garmin.garth.dump(str(token_dir))
         print("Garmin connected successfully")
 
         # Import the last 30 days of activities
