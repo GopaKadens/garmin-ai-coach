@@ -1,0 +1,46 @@
+
+name: Sync Garmin Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      history_days:
+        description: "Days to sync (7 daily, 365 initial history)"
+        required: false
+        default: "7"
+  schedule:
+    - cron: '30 5 * * *'
+    - cron: '30 11 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: garmin-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Sync recovery
+        env:
+          GARMIN_TOKENS: ${{ secrets.GARMIN_TOKENS }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
+          HISTORY_DAYS: ${{ inputs.history_days || '7' }}
+        run: python sync_recovery.py
