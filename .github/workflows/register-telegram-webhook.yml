@@ -1,0 +1,57 @@
+
+name: Register Telegram Webhook
+
+on:
+  workflow_dispatch:
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Register webhook
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          token = os.environ["TELEGRAM_BOT_TOKEN"]
+          secret = os.environ["TELEGRAM_WEBHOOK_SECRET"]
+
+          if not secret:
+              raise RuntimeError("Webhook secret is empty")
+
+          endpoint = (
+              "https://lnumhxmgaotzgcnfrzsb.supabase.co"
+              "/functions/v1/telegram-coach"
+          )
+
+          params = urllib.parse.urlencode({
+              "url": endpoint,
+              "secret_token": secret,
+              "allowed_updates": json.dumps(["message"]),
+              "drop_pending_updates": False,
+          }).encode()
+
+          request = urllib.request.Request(
+              f"https://api.telegram.org/bot{token}/setWebhook",
+              data=params,
+              method="POST",
+          )
+
+          with urllib.request.urlopen(
+              request, timeout=30
+          ) as response:
+              result = json.load(response)
+
+          if not result.get("ok"):
+              raise RuntimeError("Webhook registration failed")
+
+          print("Telegram webhook registered successfully")
+          print("Endpoint:", endpoint)
+          PY
