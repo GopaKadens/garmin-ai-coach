@@ -1,4 +1,3 @@
-
 name: Sync Garmin to Supabase
 
 on:
@@ -25,9 +24,46 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Sync Garmin activities
+        id: garmin_sync
         env:
           GARMIN_TOKENS: ${{ secrets.GARMIN_TOKENS }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
         run: python sync_garmin.py
+
+      - name: Notify Telegram about manual sync
+        if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SYNC_OUTCOME: ${{ steps.garmin_sync.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.environ.get('TELEGRAM_BOT_TOKEN')
+          chat_id = os.environ.get('TELEGRAM_CHAT_ID')
+          outcome = os.environ.get('SYNC_OUTCOME', 'unknown')
+          url = os.environ.get('RUN_URL', '')
+          if not token or not chat_id:
+              print('Telegram secrets missing; skipping notification')
+          else:
+              if outcome == 'success':
+                  message = 'Garmin sync завершён успешно. Данные обновлены в Supabase.'
+              else:
+                  message = f'Garmin sync завершился с ошибкой (статус: {outcome}).'
+              message += f'\nGitHub Actions: {url}'
+              data = json.dumps({'chat_id': chat_id, 'text': message}).encode()
+              req = urllib.request.Request(
+                  f'https://api.telegram.org/bot{token}/sendMessage',
+                  data=data,
+                  headers={'Content-Type': 'application/json'},
+                  method='POST',
+              )
+              with urllib.request.urlopen(req, timeout=15) as response:
+                  print('Telegram notification HTTP', response.status)
+          PY
