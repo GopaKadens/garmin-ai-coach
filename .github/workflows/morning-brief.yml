@@ -1,0 +1,20 @@
+name: Morning Coach Brief
+on:
+  schedule:
+    # 07:30 Prague winter / 08:30 Prague summer (GitHub cron uses UTC)
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+jobs:
+  morning:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send morning briefing
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          MORNING_BRIEF_SECRET: ${{ secrets.MORNING_BRIEF_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent --retry 2 --max-time 110 \
+            -X POST "${SUPABASE_URL}/functions/v1/telegram-coach/morning" \
+            -H "Content-Type: application/json" \
+            -H "X-Morning-Brief-Secret: ${MORNING_BRIEF_SECRET}" \
+            -d '{}'
